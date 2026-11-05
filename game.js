@@ -25,10 +25,10 @@ const r2=v=>Math.round(v*100)/100,r3=v=>Math.round(v*1000)/1000;
 const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 const ad=(a,b)=>{let d=b-a;while(d>Math.PI)d-=6.2832;while(d<-Math.PI)d+=6.2832;return d};
 const rng=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
-const cv=$('g'),renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.75)*GFX);renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!MOB;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const cv=$('g'),renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.75)*GFX);renderer.setSize(innerWidth,innerHeight,false);renderer.shadowMap.enabled=!MOB;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(FOGC,40,170);
 const cam=new THREE.PerspectiveCamera(78,innerWidth/innerHeight,.05,700);cam.rotation.order='YXZ';scene.add(cam);
-const fov=()=>{cam.fov=innerWidth<innerHeight?100:78;cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();vm.position.x=innerWidth<innerHeight?.17:.3};
+const fov=(w=innerWidth,h=innerHeight)=>{cam.fov=w<h?100:78;cam.aspect=w/h;cam.updateProjectionMatrix();vm.position.x=w<h?.17:.3};
 const tex=(w,h,f)=>{const c=document.createElement('canvas');c.width=w;c.height=h;f(c.getContext('2d'),w,h);return new THREE.CanvasTexture(c)};
 const skyT=tex(8,256,(c,w,h)=>{const g=c.createLinearGradient(0,0,0,h);SKYC.forEach(s=>g.addColorStop(s[0],s[1]));c.fillStyle=g;c.fillRect(0,0,w,h)});
 scene.add(new THREE.Mesh(new THREE.SphereGeometry(600,24,16),new THREE.MeshBasicMaterial({map:skyT,side:THREE.BackSide,fog:false})));
@@ -57,7 +57,7 @@ const MAPS=[{n:'NEON ARENA',reg:1,A:34,L:[[14,5,6,2,3.2],[20,16,2,8,3.2],[9,19,4
 {n:'GRID CITY',reg:1,A:44,L:[[11,11,8,8,3.6],[26,9,6,10,3.2],[9,27,10,6,3.2],[24,24,5,5,2.6],[34,6,2,6,1.1],[3,18,2,6,3.2],[33,-14,2,6,1.1]],K:[6,6,3.6],cor:[4.25,4,16]},
 {n:'RING FORTRESS',reg:1,A:38,L:[[13,6,2,10,3.4],[19,19,6,2,3.4],[6,26,4,4,2.4],[28,9,3,3,1.1],[21,1,1.5,5,1.1],[10,16,2,2,3.4]],K:[7,7,3.8],cor:[4.25,4,15]},
 {n:'DEATHMATCH ARENA',A:50,L:[[16,6,8,2,3.4],[32,12,2,12,3.2],[10,30,12,2,3.2],[24,24,6,6,2.6],[42,22,3,3,1.1],[8,16,2,2,3.2],[36,-2,2,8,1.1],[40,6,2,6,1.1]],K:[8,8,3.8],cor:[4.25,4,18]},
-{n:'CTF FIELD',A:55,Wz:37.5,mir:1,L:[[14,8,6,2,3.2],[26,22,2,8,3.2],[38,10,3,3,1.1],[20,30,6,1.5,1.1],[6,20,2,2,3.2],[44,26,4,4,2.4],[30,4,2,4,1.1]],K:[6,8,3.6],S:[[-49,-18],[49,-18],[49,18],[-49,18]],F:[[-48,0],[48,0]],dim:'110 × 75'},
+{n:'CTF FIELD',A:55,Wz:37.5,mir:1,L:[[14,8,6,2,3.2],[26,22,2,8,3.2],[38,10,3,3,1.1],[20,30,6,1.5,1.1],[6,20,2,2,3.2],[44,26,4,4,2.4],[30,4,2,4,1.1],[10,30,3,3,1.1],[34,30,6,2,3.2],[22,14,3,3,1.1],[40,18,2,2,3.2],[8,12,2,2,3.2],[30,14,6,1.5,1.1]],K:[6,8,3.6],S:[[-49,-18],[49,-18],[49,18],[-49,18]],F:[[-48,0],[48,0]],dim:'110 × 75'},
 {n:'DEAD CITY',A:45,L:[[10,10,8,6,3.6],[26,8,6,10,3.2],[8,26,10,6,3.2],[22,22,4,4,2.6],[36,24,2,6,1.1],[3,16,2,6,3.2],[34,-8,2,6,1.1]],K:[6,6,3.6],cor:[4.25,4,16]}];
 const REG=MAPS.map((m,i)=>i).filter(i=>MAPS[i].reg);
 const inB=(x,z,y=1.4)=>OB.find(o=>y<o.h&&x>o.x0&&x<o.x1&&z>o.z0&&z<o.z1);
@@ -156,17 +156,18 @@ function musNote(st,t){const stp=st%16,bar=Math.floor(st/16),ch=(bar>>1)%4,hot=p
  if(stp==0&&bar%8==7)mNoise(t,1.9,.14,'highpass',400,9000);
  if(stp==0&&bar%8==0&&bar>0)mNoise(t,.9,.16,'highpass',3000)}
 function musTick(){if(!AC||mute||!musOn||AC.state!='running')return;const spb=60/128/4;while(musT<AC.currentTime+.3){musNote(musStep,musT);musT+=spb;musStep++}}
+['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{ac();musicStart()},{passive:true}));
 const BAN_MIN=[15,30,60,120,180,300,720,1440,2880,4320,7200,10080,43200,86400,129600,172800,216000,259200,525600];
 const banRec=()=>{const a=lsGet('ban_'+(ACC?ACC.key:'guest'),null),d=lsGet('ban_dev',null),c=ACC&&ACC.ban?ACC.ban:null;return[a,d,c].filter(Boolean).sort((x,y)=>y.until-x.until)[0]||null};
 const banLeft=()=>{const b=banRec();return b&&b.until>Date.now()?b.until-Date.now():0};
 function applyBan(){if(banning)return;banning=true;const key=ACC?ACC.key:'guest',lv=Math.max(-1,lsGet('ban_'+key,{lvl:-1}).lvl,ACC&&ACC.ban?ACC.ban.lvl:-1),lvl=ACC?Math.min(lv+1,BAN_MIN.length-1):0,b={until:Date.now()+BAN_MIN[lvl]*60000,lvl};
- lsSet('ban_'+key,b);lsSet('ban_dev',b);if(ACC){ACC.ban=b;lsSet('acc',ACC);if(ACC.cloud)getDb().then(d=>d&&d.doc('accounts/'+ACC.key).update({ban:b})).catch(()=>{})}
+ lsSet('ban_'+key,b);lsSet('ban_dev',b);if(ACC){ACC.ban=b;lsSet('acc',ACC);if(ACC.cloud)cloudUpd({ban:b})}
  try{R&&R.leave()}catch(e){}setTimeout(()=>location.reload(),400)}
 let B=[],S=[],P=[],FX=[],DP=[],SPD=[];
 function pts(x,y,z,col,n,spd,up,sz,life,g=18,stk=false){n=Math.max(1,Math.round(n*DET));for(let i=0;i<n;i++){if(P.length>650*DET){scene.remove(P.shift().m)}const m=new THREE.Mesh(boxG,mat(Array.isArray(col)?col[i%col.length]:col)),a=rnd(0,6.283),s=rnd(.3,1)*spd*rnd(.4,1),sc=rnd(.4,1)*sz;
  m.position.set(x,y,z);m.scale.setScalar(sc);scene.add(m);P.push({m,vx:Math.cos(a)*s,vy:rnd(.3,1)*up,vz:Math.sin(a)*s,rx:rnd(-9,9),ry:rnd(-9,9),l:rnd(.6,1)*life,g,sc,stk})}}
 function dec(x,y,z,nx,nz,col,r,tag){tag=tag||++DID;const s=new THREE.Mesh(discG,dm(col));s.scale.setScalar(r*.35);SPD.push({m:s,r,t:0});if(nx||nz){s.position.set(x+nx*.03,y,z+nz*.03);s.lookAt(x+nx,y,z+nz)}else{s.rotation.x=-Math.PI/2;s.position.set(x,y||(.02+Math.random()*.02),z)}
- const yy=s.position.y;for(let i=S.length-1;i>=0;i--){const u=S[i].userData;if(u.tg&&u.tg!==tag&&u.nx===nx&&u.nz===nz&&Math.hypot(u.x-x,u.y-yy,u.z-z)<Math.max(r,u.r)*.8){scene.remove(S[i]);S.splice(i,1)}}
+ const yy=s.position.y;for(let i=S.length-1;i>=0;i--){const u=S[i].userData;if(u.tg&&u.tg!==tag&&u.nx===nx&&u.nz===nz&&Math.hypot(u.x-x,u.y-yy,u.z-z)<(r+u.r)*.7){scene.remove(S[i]);S.splice(i,1)}}
  s.userData={tg:tag,nx,nz,x,y:yy,z,r};scene.add(s);S.push(s);if(S.length>420*DET)scene.remove(S.shift())}
 function blob(x,y,z,nx,nz,col,r){const tg=++DID;dec(x,y,z,nx,nz,col,r,tg);const tx=nz,tz=-nx,fl0=!nx&&!nz;for(let i=0;i<4;i++){const o=rnd(-1,1)*r*.9,o2=rnd(-1,1)*r*.9,rr=r*rnd(.2,.5);
  if(fl0)dec(x+o,0,z+o2,0,0,col,rr,tg);else dec(x+tx*o,y+o2,z+tz*o,nx,nz,col,rr,tg)}}
@@ -212,16 +213,22 @@ async function getDb(){if(DB)return DB;try{DB=typeof claude!=='undefined'?await 
 async function sha(t){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=0;for(const c of t)h=(h*31+c.charCodeAt(0))|0;return 'x'+h}}
 function loadSession(){let a=lsGet('acc',null);if(a&&Date.now()-a.last>7*864e5){lsSet('acc',null);a=null}if(a){a.last=Date.now();lsSet('acc',a)}ACC=a;const id=ACC?ACC.key:'guest';ST=Object.assign(ST0(),lsGet('st_'+id,{}));SKIN=lsGet('sk_'+id,0);if(!skinOpen(SKIN))SKIN=0}
 function guestName(){let g=lsGet('gname',null);if(!g){g='Guest'+(100+Math.random()*899|0);lsSet('gname',g)}return g}
-function saveAcc(){const id=ACC?ACC.key:'guest';lsSet('st_'+id,ST);lsSet('sk_'+id,SKIN);if(ACC&&ACC.cloud)getDb().then(d=>d&&d.doc('accounts/'+ACC.key).update({st:ST,sk:SKIN})).catch(()=>{})}
-async function signUp(n,pw,pw2){n=(n||'').trim();if(!/^[A-Za-z0-9_]{3,12}$/.test(n))return'Nickname: 3–12 letters, digits or _';if((pw||'').length<4)return'Password needs at least 4 characters';if(pw!==pw2)return'Passwords do not match';
- const key=akey(n),salt=Math.random().toString(16).slice(2,10)+Date.now().toString(16),hash=await sha(salt+pw),d=await getDb();let cloud=false;
- if(d){try{const ref=d.doc('accounts/'+key),sn=await ref.get();if(sn.exists)return'This nickname is already taken';await ref.set({nick:n,salt,hash,st:ST0(),sk:0,created:Date.now()});cloud=true}catch(e){cloud=false}}
- if(!cloud){const L=lsGet('accs',{});if(L[key])return'This nickname is already taken on this device';L[key]={nick:n,salt,hash};lsSet('accs',L)}
+function saveAcc(){const id=ACC?ACC.key:'guest';lsSet('st_'+id,ST);lsSet('sk_'+id,SKIN);if(ACC&&ACC.cloud)cloudUpd({st:ST,sk:SKIN})}
+let UID;async function priv(){const d=await getDb();if(!d)return null;if(UID===undefined){try{const u=typeof claude!=='undefined'?await claude.use('user'):null;UID=u?await u.id():null}catch(e){UID=null}}return UID?{d,uid:UID}:null}
+async function cloudUpd(o){const P=await priv();if(!P||!ACC)return;try{await P.d.collection('data/users/'+P.uid).doc('acct_'+ACC.key).update(o)}catch(e){}}
+async function kdf(pw,salt){try{const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']),b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(salt),iterations:200000,hash:'SHA-256'},k,256);return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return sha(salt+pw)}}
+const rhex=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(x=>x.toString(16).padStart(2,'0')).join('');
+async function signUp(n,pw,pw2){n=(n||'').trim();if(!/^[A-Za-z0-9_]{3,12}$/.test(n))return'Nickname: 3–12 letters, digits or _';if((pw||'').length<6)return'Password needs at least 6 characters';if(pw!==pw2)return'Passwords do not match';
+ const key=akey(n),salt=rhex(16),hash=await kdf(pw,salt),P=await priv();let cloud=false;
+ if(P){try{const nref=P.d.doc('nicks/'+key),sn=await nref.get();if(sn.exists&&sn.data().u!==P.uid)return'This nickname is already taken';
+  const aref=P.d.collection('data/users/'+P.uid).doc('acct_'+key);if((await aref.get()).exists)return'You already have this account. Use Sign In';
+  await nref.set({u:P.uid,t:Date.now()});await aref.set({nick:n,salt,hash,v:2,st:ST0(),sk:0,created:Date.now()});cloud=true}catch(e){cloud=false}}
+ if(!cloud){const L=lsGet('accs2',{});if(L[key])return'This nickname is already taken on this device';L[key]={nick:n,salt,hash};lsSet('accs2',L)}
  ACC={nick:n,key,cloud,last:Date.now()};lsSet('acc',ACC);ST=ST0();SKIN=0;saveAcc();return''}
-async function signIn(n,pw){n=(n||'').trim();const key=akey(n),d=await getDb();let rec=null,cloud=false;
- if(d){try{const sn=await d.doc('accounts/'+key).get();if(sn.exists){rec=sn.data();cloud=true}}catch(e){}}
- if(!rec){const L=lsGet('accs',{});if(L[key])rec=L[key]}
- if(!rec)return'This account does not exist';if(await sha(rec.salt+pw)!==rec.hash)return'Wrong password';
+async function signIn(n,pw){n=(n||'').trim();const key=akey(n),P=await priv();let rec=null,cloud=false;
+ if(P){try{const sn=await P.d.collection('data/users/'+P.uid).doc('acct_'+key).get();if(sn.exists){rec=sn.data();cloud=true}}catch(e){}}
+ if(!rec){const L=lsGet('accs2',{});if(L[key])rec=L[key]}
+ if(!rec)return'This account does not exist for your Claude account or this device';if(await kdf(pw,rec.salt)!==rec.hash)return'Wrong password';
  ACC={nick:rec.nick,key,cloud,last:Date.now(),ban:rec.ban||null};if(rec.ban)lsSet('ban_'+key,rec.ban);lsSet('acc',ACC);ST=Object.assign(ST0(),cloud?(rec.st||{}):lsGet('st_'+key,{}));SKIN=cloud?(rec.sk||0):lsGet('sk_'+key,0);if(!skinOpen(SKIN))SKIN=0;saveAcc();return''}
 function logOut(){ACC=null;lsSet('acc',null);loadSession()}
 function applySkin(e,i){const K=SKINS[i]||SKINS[0],m=e.suit;e.skin=i;m.color.setHex(K.c);m.metalness=K.m===undefined?.4:K.m;m.roughness=K.r===undefined?.5:K.r;m.emissive.setHex(K.em||0);m.emissiveIntensity=K.em?.45:0;m.transparent=!!K.op;m.opacity=K.op||1;
@@ -356,7 +363,7 @@ function ctfStep(){let chg=false;FLG.forEach(f=>{const car=f.car>=0?G[f.car]:nul
   if(f.car>=0){const c=G[f.car],own=FLG[c.team];if(own.home&&Math.hypot(c.x-own.hx,c.z-own.hz)<2.2){CAPS[c.team]++;TS[c.team]+=5;f.car=-1;f.x=f.hx;f.z=f.hz;f.home=true;chg=true;flagMsg(c,f,'cap')}}});return chg}
 function onFlg(m){const d=m.data;if(!d||!started||isHost||(m.isMe&&m.sameTab)||!FLG.length)return;FLG.forEach((f,i)=>{const sv=d.f[i];if(!sv)return;const was=f.car;f.car=sv[0];f.x=sv[1];f.z=sv[2];f.home=!!sv[3];if(f.car>=0&&was!==f.car&&G[f.car])flagMsg(G[f.car],f,'take')});
  d.cp.forEach((n,t)=>{if(n>CAPS[t]){const dd=n-CAPS[t];CAPS[t]=n;TS[t]+=5*dd;banner(`${T[t].n.toUpperCase()} CAPTURED THE FLAG! +5`,hex(T[t].c));if(d.lc===ME.gid)ME.sc.cf++;tone(900,.2,'triangle',.08)}})}
-function giveInv(e){const mk2=w=>({w,m:WP[w].mag,r:WP[w].res});if(e.pw===undefined)e.pw=e.w;e.invs=e.jug?[mk2(4)]:(e.zom?[mk2(5)]:[mk2(e.pw),mk2(0),mk2(5),mk2(6),mk2(7)]);e.slot=0;e.w=e.invs[0].w;e.rl=0;e.sw=0;e.dmg2={}}
+function giveInv(e){const mk2=w=>({w,m:WP[w].mag,r:WP[w].res});if(e.pw===undefined)e.pw=e.w;e.invs=e.jug?[mk2(4)]:(e.zom?[mk2(5)]:[mk2(e.pw),mk2(0),mk2(5),mk2(6)].concat(Math.random()<.1?[mk2(7)]:[]));e.slot=0;e.w=e.invs[0].w;e.rl=0;e.sw=0;e.dmg2={};if(e.p&&e.invs.length>4)feed.push({t:5,s:'🚀 You got a Rocket Launcher! (key 5)'})}
 function switchSlot(e,i){if(!e.invs||i<0||i>=e.invs.length||i===e.slot)return;e.slot=i;e.w=e.invs[i].w;e.rl=0;e.sw=.28;if(e.p){buildVM(e.w,T[e.team].c);tone(420,.05,'square',.04)}}
 function startReload(e){const I=e.invs&&e.invs[e.slot],W=WP[e.w];if(!I||W.inf||I.m>=W.mag||I.r<=0||e.rl>0||e.sw>0)return;e.rl=W.rt;if(e.p)tone(260,.08,'triangle',.05)}
 function tryFire(e,a,pt){const I=e.invs[e.slot],W=WP[e.w];if(e.sw>0||e.rl>0||e.cd>0)return false;if(!W.inf&&I.m<=0){startReload(e);return false}
@@ -410,7 +417,7 @@ const fb=$('fb');fb.addEventListener('pointerdown',e=>{e.stopPropagation();e.pre
 const jb=$('jb');jb.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();jumpReq=true;jumpHeld=true;touchMode=true;ac()});['pointerup','pointercancel'].forEach(n=>jb.addEventListener(n,e=>{jumpHeld=false;e.stopPropagation()}));
 document.querySelectorAll('#wbar div').forEach(b=>b.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();touchMode=true;if(!ME.invs||phase!='match')return;const i=+b.dataset.s;if(i==5)startReload(ME);else switchSlot(ME,i)}));
 const ab=$('ab'),cb2=$('cb2');ab.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();mouse2=!mouse2;touchMode=true});cb2.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();crT=!crT;touchMode=true});
-addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);fov()});fov();
+const fit=()=>{const w=cv.clientWidth||innerWidth,h=cv.clientHeight||innerHeight;renderer.setSize(w,h,false);fov(w,h)};['resize','orientationchange'].forEach(ev=>addEventListener(ev,fit));if(window.visualViewport)visualViewport.addEventListener('resize',fit);if(window.ResizeObserver)new ResizeObserver(fit).observe(cv);fit();setTimeout(fit,300);setTimeout(fit,1500);
 function setMute(v){mute=v;$('mt').textContent=mute?'🔇':'🔊';$('mt2').textContent='Sound: '+(mute?'OFF':'ON');if(amb)amb.gain.value=mute?0:.012}
 $('mt').onclick=$('mt2').onclick=()=>setMute(!mute);$('mus2').onclick=()=>{musOn=!musOn;$('mus2').textContent='Music: '+(musOn?'ON':'OFF')};
 const fsb=$('fs'),de=document.documentElement,fsOn=()=>document.fullscreenElement||document.webkitFullscreenElement;
@@ -528,10 +535,10 @@ function scrMain(){DUELM=false;if(banLeft()>0)return scrBan();ov.style.display='
  ov.innerHTML=`<h1 class="mt">NEON PAINTBALL 3D</h1><div class="badge">${ACC?'👤 '+ACC.nick:'👤 Guest · '+guestName()}</div>${evLine()?`<div class="ev">${evLine()}</div>`:''}
  <div class="mrow"><button id="bm">🎮 Multiplayer</button><button id="bk" class="alt">👕 Skins</button></div>
  <div class="mrow"><button id="bs">🤖 Singleplayer</button><button id="bt" class="alt">📊 Stats</button></div>
- <div class="mrow"><button id="bd" class="alt">⚔ Duels</button><button id="ba" class="dim">⚙ Account settings</button></div>
+ <div class="mrow"><button id="bd" class="alt">⚔ Duels</button><button id="ba" class="dim">⚙ Account settings</button><button id="bu" class="dim">📰 Updates · v${UPDATES[0].v}</button></div>
  <div class="red">To choose a different mode you must leave the game and join again (the "Leave" button in the lobby, the red ✕ button, or refresh the page).</div>`;
  $('bs').onclick=()=>{if(banLeft()>0)return scrBan();nick();ac();MODE='single';R=null;myId='solo';isHost=true;ov.style.display='none';hostStart()};$('bm').onclick=()=>{if(banLeft()>0)return scrBan();nick();ac();MODE='multi';scrSearch()};
- $('bk').onclick=scrSkins;$('bt').onclick=scrStats;$('ba').onclick=scrAcct;$('bd').onclick=scrDuel}
+ $('bk').onclick=scrSkins;$('bt').onclick=scrStats;$('ba').onclick=scrAcct;$('bd').onclick=scrDuel;$('bu').onclick=scrUpdates}
 function scrBan(){ov.style.display='flex';let iv=0;const draw=()=>{const l=banLeft();if(l<=0){clearInterval(iv);scrMain();return}const t=Math.ceil(l/1000),d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60),sc=t%60,e=$('bt2');if(e)e.textContent=(d?d+'d ':'')+(h?h+'h ':'')+m+'m '+sc+'s'};
  ov.innerHTML=`<h1 class="mt">YOU ARE BANNED</h1><p>Suspicious activity detected: more than 5 kills within half a second.</p><div class="code" id="bt2" style="font-size:38px;letter-spacing:2px">…</div><p class="small">${ACC?'Repeated offences give longer bans (up to 1 year).':'Guests are banned for 15 minutes. Sign in to an account to keep your progress.'}</p>`;iv=setInterval(draw,1000);draw()}
 function scrDuel(){if(banLeft()>0)return scrBan();ov.innerHTML=`<h1 class="mt">DUELS</h1><div class="mrow"><button id="d1">1 v 1</button><button id="d2">2 v 2</button><button id="d4">4 v 4</button></div><div class="mrow"><button id="bb" class="dim">Back</button></div>`;[1,2,4].forEach(n=>$('d'+n).onclick=()=>scrDuelMode(n));$('bb').onclick=scrMain}
@@ -544,6 +551,16 @@ function duelJoin(n){ov.innerHTML=`<h1 class="mt">Join ${n} v ${n} duel</h1><inp
  $('pf').onclick=async()=>{const c=($('ci').value||'').replace(/\D/g,'');if(c.length!=5){$('pm').textContent='Enter a 5-digit number';return}$('pm').textContent='Searching…';nick();ac();MODE='multi';DUELM=true;DUEL={n,ai:true};
   if(!await netJoin('d'+c,false))return fail();phase='search';PRIV=true;let k=0;const iv=setInterval(()=>{const ps=peersV();if(ps.some(p=>p.presence.hs==1)){clearInterval(iv);ov.innerHTML=`<h1 class="mt">Duel found</h1><div class="code">${c}</div><p>Waiting for the host to press "Start"</p><div id="nl"></div>`}
    else if(++k>10){clearInterval(iv);try{R.leave()}catch(e){}R=null;phase='menu';DUELM=false;$('pm').textContent='No duel server with this number was found'}},300)}}
+// UPDATES: add a new entry at the TOP of this list for every release
+const UPDATES=[
+{v:'1.8',date:'2026-11-04',items:['Rocket launcher now appears for only 10% of players/AI each life (key 5)','Capture the Flag map got 24 more blocks','Fixed the half-screen game view on phones','Accounts are now stored in a private area other players cannot read, passwords use PBKDF2 (6+ characters)','Music now plays in all menus from your first tap','Paint overlap fix: new paint also replaces other players\' old paint','New "Updates" button with this changelog']},
+{v:'1.7',date:'2026-11-03',items:['Duels: 1v1, 2v2, 4v4 with create/join server and an "AI bots in game" switch','10 new legend skins (25 skins total)','Ban system for more than 5 kills in half a second','DJ-style generated music','New paint replaces old paint underneath it, old paint fades after 35 s','More realistic pumpkins, weapon slot bar on PC']},
+{v:'1.6',date:'2026-11-02',items:['Paint knife, grenade and rocket launcher, weapon slots 1–5, ammo and reload','Assists and a new leaderboard column','Corridors along the outer walls','Deathmatch (100×100) and Capture the Flag (110×75) with new maps','Events: Summer, Halloween (with Infection mode), Winter (with Slippery mode)','Accounts, skins with tasks, stats and a new gaming-style menu']},
+{v:'1.5',date:'2026-10-30',items:['Team choosing before a match (balanced teams)','Phone buttons for aiming and crouching','Soft shadows, glowing details, moon and planets']},
+{v:'1.4',date:'2026-10-28',items:['Game modes: 4 Teams, 2 Teams, Juggernaut','4 maps, voting for mode and map in the lobby','Winner announcements, countdowns, new animations','English translation, full-screen help']},
+{v:'1.3',date:'2026-10-26',items:['Online multiplayer with private matches','Jump, crouch, scope, Tab leaderboard, exit button','Visible arms, legs and nameplates']},
+{v:'1.0',date:'2026-10-24',items:['First neon paintball: 4 teams, bots, first-person view']}];
+function scrUpdates(){ov.innerHTML=`<h1 class="mt">UPDATES</h1><div class="upd">${UPDATES.map(u=>`<div class="ue"><b>v${u.v}</b> <small>${u.date}</small><ul>${u.items.map(i=>`<li>${i}</li>`).join('')}</ul></div>`).join('')}</div><button id="bb" class="dim">Back</button>`;$('bb').onclick=scrMain}
 function scrStats(){const r=ST.d?(ST.k/ST.d).toFixed(2):ST.k.toFixed(2);ov.innerHTML=`<h1 class="mt">STATS</h1><div class="badge">${ACC?'👤 '+ACC.nick:'Guest (saved on this device)'}</div>
  <div class="grid st">${[['Kills',ST.k],['Deaths',ST.d],['Assists',ST.a],['HP dealt',ST.dmg],['K/D',r],['Matches',ST.m],['Wins',ST.w],['Headshots',ST.hs]].map(a=>`<div class="sk"><b>${a[1]}</b><small>${a[0]}</small></div>`).join('')}</div><button id="bb" class="dim">Back</button>`;$('bb').onclick=scrMain}
 function scrSkins(){ov.innerHTML=`<h1 class="mt">SKINS</h1><p>5 standard skins are unlocked. Complete the tasks to unlock 10 rare and 10 legend skins.</p><div class="grid">`+SKINS.map((k,i)=>{const un=skinOpen(i),pg=k.rare?Math.min(1,(ST[k.key]||0)/k.goal):1,hx='#'+k.c.toString(16).padStart(6,'0'),em=k.em?'#'+k.em.toString(16).padStart(6,'0'):'#00e5ff';
@@ -551,7 +568,7 @@ function scrSkins(){ov.innerHTML=`<h1 class="mt">SKINS</h1><p>5 standard skins a
  $('bb').onclick=scrMain;ov.querySelectorAll('.sk').forEach(el=>el.onclick=()=>{const i=+el.dataset.i;if(!skinOpen(i)){tone(200,.1,'square',.05);return}SKIN=i;applySkin(ME,i);saveAcc();scrSkins();tone(700,.08,'square',.05)})}
 function scrAcct(){ov.innerHTML=`<h1 class="mt">ACCOUNT SETTINGS</h1><div class="badge">${ACC?'Signed in as '+ACC.nick+(ACC.cloud?' · cloud':' · this device'):'Not signed in (guest)'}</div>
  <div class="mrow">${ACC?'':'<button id="su">Sign Up</button><button id="si2" class="alt">Sign In</button>'}${ACC?'<button id="lo" class="danger">Log Out</button>':''}</div><div class="mrow"><button id="bb" class="dim">Back</button></div>
- <p class="small">Passwords are stored as salted hashes, but accounts live in this game's shared database. Do not reuse a real password. You are logged out automatically after 7 days of not playing.</p>`;
+ <p class="small">Passwords are never stored as plain text: they are salted and run through PBKDF2 (200,000 rounds), and cloud account data sits in a private area that other players cannot read. Do not reuse a real password anyway. You are logged out automatically after 7 days of not playing.</p>`;
  $('bb').onclick=scrMain;if($('su'))$('su').onclick=()=>scrForm(true);if($('si2'))$('si2').onclick=()=>scrForm(false);if($('lo'))$('lo').onclick=()=>{logOut();scrAcct()}}
 function scrForm(up){ov.innerHTML=`<h1 class="mt">${up?'SIGN UP':'SIGN IN'}</h1><input id="an" maxlength="12" placeholder="${up?'New nickname':'Nickname'}" autocomplete="off"><input id="pw" type="password" maxlength="32" placeholder="${up?'New password':'Password'}">${up?'<input id="pw2" type="password" maxlength="32" placeholder="Confirm password">':''}
  <div class="red" id="am"></div><div class="mrow"><button id="go2">${up?'Create account':'Sign In'}</button><button id="bb" class="dim">Back</button></div>`;$('bb').onclick=scrAcct;
@@ -602,7 +619,7 @@ function loop(now){requestAnimationFrame(loop);const raw=Math.min((now-last)/100
  if(tsT>0)tsT-=raw;else ts+=(1-ts)*Math.min(1,raw*6);const dt=raw*ts;sndN=0;if(phase=='pick')tm-=raw;netStep(raw);step(dt,raw);
  hudT+=raw;if(hudT>.2&&(phase=='match'||phase=='lobby')&&G.includes(ME)){hudT=0;hud()}
  const p=ME,match=phase=='match',inGame=(match||phase=='lobby')&&G.includes(ME);shake=Math.max(0,shake-raw*2.5);vig=Math.max(0,vig-raw*1.1);hmT=Math.max(0,hmT-raw);kick=Math.max(0,kick-raw*9);landT=Math.max(0,landT-raw*5);
- $('vig').style.opacity=vig;adsK+=(((mouse2&&match&&p.alive)?1:0)-adsK)*Math.min(1,raw*12);{const bf=innerWidth<innerHeight?100:78,tf=bf*(1-adsK*(1-[.8,.7,.85,.25,.8,1,1,.8][p.w]));if(Math.abs(cam.fov-tf)>.05){cam.fov=tf;cam.updateProjectionMatrix()}{const rlE=$('rl');const rv=p.rl>0;rlE.style.display=rv?'block':'none';if(rv)rlE.firstChild.style.width=(1-p.rl/WP[p.w].rt)*100+'%';document.querySelectorAll('#wbar div').forEach((d,i)=>d.classList.toggle('on',i==p.slot))}{const sl=$('slots'),show=match&&!MOB&&p.invs&&p.alive;sl.style.display=show?'flex':'none';if(show){const NMS=['PIS','SMG','SHG','SNP','MNG','KNF','GRN','RKT'],h=p.invs.map((q,i)=>{const W=WP[q.w];return `<div class="sl${i==p.slot?' on':''}">${i+1} ${NMS[q.w]}<br>${W.inf?'∞':q.m+'/'+q.r}</div>`}).join('');if(sl.dataset.k!==h){sl.dataset.k=h;sl.innerHTML=h}}}
+ $('vig').style.opacity=vig;adsK+=(((mouse2&&match&&p.alive)?1:0)-adsK)*Math.min(1,raw*12);{const bf=innerWidth<innerHeight?100:78,tf=bf*(1-adsK*(1-[.8,.7,.85,.25,.8,1,1,.8][p.w]));if(Math.abs(cam.fov-tf)>.05){cam.fov=tf;cam.updateProjectionMatrix()}{const rlE=$('rl');const rv=p.rl>0;rlE.style.display=rv?'block':'none';if(rv)rlE.firstChild.style.width=(1-p.rl/WP[p.w].rt)*100+'%';document.querySelectorAll('#wbar div').forEach((d,i)=>{d.classList.toggle('on',i==p.slot);if(i==4)d.style.display=(p.invs&&p.invs.length<5)?'none':''})}{const sl=$('slots'),show=match&&!MOB&&p.invs&&p.alive;sl.style.display=show?'flex':'none';if(show){const NMS=['PIS','SMG','SHG','SNP','MNG','KNF','GRN','RKT'],h=p.invs.map((q,i)=>{const W=WP[q.w];return `<div class="sl${i==p.slot?' on':''}">${i+1} ${NMS[q.w]}<br>${W.inf?'∞':q.m+'/'+q.r}</div>`}).join('');if(sl.dataset.k!==h){sl.dataset.k=h;sl.innerHTML=h}}}
  $('ab').classList.toggle('on',mouse2);$('cb2').classList.toggle('on',crT);const sce=$('sc');sce.className='s'+p.w;sce.style.opacity=p.w>=4?0:(p.w==3?Math.max(0,(adsK-.55)*2.2):adsK)}$('hm').style.opacity=Math.min(1,hmT*6);{const k=((now/1000)%8)/8;wave.scale.setScalar(2+k*A*1.4);wave.material.opacity=.45*(1-k);wave.visible=phase!='lobby'}{const tt=now/1000;ANI.forEach(f=>f(tt,raw))}
  FLG.forEach(f=>{const car=f.car>=0?G[f.car]:null;f.m.position.set(car?car.x:f.x,car?car.y+.4:0,car?car.z:f.z);f.ban.rotation.y=Math.sin(now/250)*.4});
  holo.rotation.y+=raw;holo.rotation.x+=raw*.5;holoC.rotation.z+=raw*.6;holoC2.rotation.y+=raw*.8;

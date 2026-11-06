@@ -95,3 +95,12 @@ body.m #slots{display:none!important}
 .sk.leg{border-color:#ffb300;background:linear-gradient(180deg,rgba(255,179,0,.18),rgba(10,6,30,.7))}
 
 .upd{max-width:560px;width:100%;max-height:62vh;overflow:auto;text-align:left;padding:4px 10px}.ue{margin-bottom:12px;border-left:3px solid #00e5ff;padding-left:10px}.ue ul{margin:4px 0 0 16px;padding:0;font-size:15px}.ue b{color:#ffd400;font-size:18px}.ue small{opacity:.7}
+
+#fl{inset:0;opacity:0}#fl.win{background:radial-gradient(circle,rgba(255,215,0,.55),transparent 70%);animation:flw 1.6s}
+#fl.lose{background:rgba(20,20,30,.6);backdrop-filter:grayscale(1);animation:fll 2.2s}
+@keyframes flw{0%{opacity:0;transform:scale(.6)}30%{opacity:1}100%{opacity:0;transform:scale(1.4)}}@keyframes fll{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+
+button:active,.cb:active,#fb:active,#jb:active,#wbar div:active{transform:scale(.92)}
+#ov button:active{transform:translateY(1px) scale(.95);filter:brightness(1.5)}
+#ov textarea{font-family:'Rajdhani',sans-serif;font-size:18px;width:min(480px,86vw);height:70px;background:#0d0a22;color:#fff;border:2px solid #00e5ff;padding:8px;resize:none;user-select:text;-webkit-user-select:text}
+#ov input[type=checkbox]{width:20px;height:20px;clip-path:none;border:0;accent-color:#00e5ff}.tags label{font-size:18px;display:flex;align-items:center;gap:6px}

@@ -246,7 +246,7 @@ let MBUS=null,micOn=false,MIC=null,PCS={},SPK={},micIv=0,chatOpen=false;
 let HUB=null,HUBMSG='Checking server…';
 const hubShow=()=>{const e=document.getElementById('hubs');if(e)e.textContent=HUBMSG};
 async function hubInit(){if(HUB)return;if(typeof claude==='undefined'){HUBMSG='Offline copy: online play is not available';hubShow();return}let rm=null;try{rm=await claude.use('room')}catch(e){}
- if(!rm){HUBMSG='🔴 Server unavailable: sign in to Claude, and ask the creator for Contributor access';hubShow();return}
+ if(!rm){const ps=await permState('room');HUBMSG=ps=='denied'?'🔴 Online access is switched off: open Account settings → Permissions and allow it':'🔴 Server unavailable: sign in to Claude, and ask the creator for Contributor access';hubShow();return}
  try{HUB=await rm.join('hub');HUB.presence({nm:NICK||'player'});const upd=()=>{const n=HUB.peers().filter(p=>p.kind=='viewer').length;HUBMSG='🟢 Server online · '+n+' player'+(n==1?'':'s')+' online';hubShow()};HUB.onPeers(upd);upd()}
  catch(e){HUBMSG='🔴 Server unavailable ('+((e&&e.code=='not_permitted')?'ask the creator for Contributor access':((e&&e.message)||'connection error'))+')';hubShow()}}
 async function cloudGuest(){const P=await priv();if(!P)return;try{await P.d.collection('data/users/'+P.uid).doc('guest').set({st:ST,sk:SKIN})}catch(e){}}
@@ -259,6 +259,14 @@ async function kdf(pw,salt){try{const k=await crypto.subtle.importKey('raw',new 
 const rhex=n=>[...crypto.getRandomValues(new Uint8Array(n))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const ADM_SALT='pb3d-adm-7f3a91c2e5d84b06',ADM_HASH='12158cdf63ee6c8c9c08dbbc5814a2958a8a30b75107d408a9fb6d220f985fa2';
 async function admChk(key,pw){return key==='plmi14'&&(await kdf(pw,ADM_SALT))===ADM_HASH}
+async function resetPw(n,pw,pw2){n=(n||'').trim();const key=akey(n);if((pw||'').length<6)return'Password needs at least 6 characters';if(pw!==pw2)return'Passwords do not match';
+ const P=await priv();let rec=null,cloud=false,aref=null,L=null;
+ if(P){try{aref=P.d.collection('data/users/'+P.uid).doc('acct_'+key);const sn=await aref.get();if(sn.exists){rec=sn.data();cloud=true}}catch(e){}}
+ if(!rec){L=lsGet('accs2',{});if(L[key])rec=L[key]}
+ if(!rec)return'No account with this nickname was found for your Claude account or on this device';
+ const salt=rhex(16),hash=await kdf(pw,salt);
+ if(cloud){try{await aref.update({salt,hash,v:2})}catch(e){return'Could not save the new password. Try again'}}else{L[key].salt=salt;L[key].hash=hash;lsSet('accs2',L)}
+ return await signIn(n,pw)}
 async function signUp(n,pw,pw2){n=(n||'').trim();if(!/^[A-Za-z0-9_]{3,12}$/.test(n))return'Nickname: 3–12 letters, digits or _';if((pw||'').length<6)return'Password needs at least 6 characters';if(pw!==pw2)return'Passwords do not match';
  const key=akey(n),salt=rhex(16),hash=await kdf(pw,salt),P=await priv();let cloud=false;
  if(P){try{const nref=P.d.doc('nicks/'+key),sn=await nref.get();if(sn.exists&&sn.data().u!==P.uid)return'This nickname is already taken';
@@ -326,8 +334,14 @@ const net=(t,d)=>{if(R)try{R.emit(t,d).catch(()=>{})}catch(e){}};
 const pres=p=>{if(R)try{R.presence(p).catch(()=>{})}catch(e){}};
 const hsc=v=>(v.jug?1.45:1)*(1-.28*(v.cr||0));
 const owned=v=>v===ME||(isHost&&v.bot);
-let NETERR='';
+let NETERR='',PERMASKED=false,PERMDENY=false;
+async function permNs(){try{return typeof claude!=='undefined'?await claude.use('permissions'):null}catch(e){return null}}
+async function askPerm(names){const p=await permNs();if(!p)return null;try{return names?await p.request(names):await p.request()}catch(e){return null}}
+async function permState(n){const p=await permNs();if(!p)return'unknown';try{return await p.state(n)}catch(e){return'unknown'}}
+addEventListener('pointerdown',()=>{if(!PERMASKED){PERMASKED=true;askPerm().then(()=>hubInit())}},{once:true});
 async function netJoin(name,hs){NETERR='';let rm=null;if(typeof claude==='undefined'){NETERR='This copy of the game is not running inside Claude (for example a GitHub copy), so online play is not available.';return false}
+ PERMDENY=false;let ps=await permState('room');if(ps=='prompt'){await askPerm(['room','db','user']);ps=await permState('room')}
+ if(ps=='denied'){NETERR='Online play is switched off for this game because a permission prompt was declined. Press "Permissions" below, turn the access back on, then press Retry.';PERMDENY=true;return false}
  try{rm=await claude.use('room')}catch(e){NETERR='Could not reach the room service: '+((e&&e.message)||e)}
  if(!rm){NETERR=NETERR||'The room service is not available for you. Sign in to Claude and ask the game creator to share it with you as a Contributor (the Viewer role cannot play online). Your internet connection is probably fine.';return false}
  try{R=await rm.join(name)}catch(e){R=null;NETERR=(e&&e.code=='not_permitted')?'The creator has not given you permission to play online. Ask them to share the game with the Contributor role.':'Could not join the room: '+((e&&e.message)||e);return false}
@@ -622,6 +636,7 @@ function duelJoin(n){ov.innerHTML=`<h1 class="mt">Join ${n} v ${n} duel</h1><inp
    else if(++k>10){clearInterval(iv);try{R.leave()}catch(e){}R=null;phase='menu';DUELM=false;$('pm').textContent='No duel server with this number was found'}},300)}}
 // UPDATES: add a new entry at the TOP of this list for every release
 const UPDATES=[
+{v:'2.1',date:'2026-11-08',items:['Forgot-password reset for your own accounts (Account settings → Sign In → Forgot password)','Online play now asks for the permission once and explains clearly if it was declined, with a Permissions button']},
 {v:'2.0',date:'2026-11-07',items:['Med kits fall from the sky together with the ammo crates','Teammates now have a see-through outline, and their name and health are always visible','Enemy names are shown only when you can really see them','Outer walls now have holes that lead into long corridors running around the whole arena (same height as the walls)','Capture the Flag: more cover blocks near both spawns','Server status in the menu (shows how many players are online)','Text chat (press T) and a microphone button for voice chat','Legend skins now have auras, trails and colour effects, rare skins have a softer aura','Fixed: spaces in the idea board, camera stuck on an orbit after joining a match, nicer scroll bars']},
 {v:'1.9',date:'2026-11-06',items:['Holes in the outer walls with short tunnels on every map (instead of inner corridors)','Capture the Flag: many more cover blocks, 10 tunnels, easier flag capture','Weaker, fairer bots that cannot see you behind their back','Ammo crates fall from the sky (2 every 25 seconds)','New music and sounds, button click sounds','Better animations: shooting, reloading, paint knife, grenade throw and explosion, win and defeat','Holding the right mouse button and shooting now works together','Back buttons in the multiplayer menus and clearer connection errors','Idea board where players can post ideas (to fix / to add / to change)','Your account, stats and skins come back automatically after game updates','New game icon','Fixed: wrong weapon model after respawn, mouse stuck in the lobby']},
 {v:'1.8',date:'2026-11-04',items:['Rocket launcher now appears for only 10% of players/AI each life (key 5)','Capture the Flag map got 24 more blocks','Fixed the half-screen game view on phones','Accounts are now stored in a private area other players cannot read, passwords use PBKDF2 (6+ characters)','Music now plays in all menus from your first tap','Paint overlap fix: new paint also replaces other players\' old paint','New "Updates" button with this changelog']},
@@ -651,12 +666,14 @@ function scrSkins(){ov.innerHTML=`<h1 class="mt">SKINS</h1><p>5 standard skins a
   return `<div class="sk${i==SKIN?' sel':''}${un?'':' lock'}${k.leg?' leg':''}" data-i="${i}"><div class="sw" style="background:${hx};box-shadow:0 0 ${k.leg?28:k.rare?14:6}px ${k.rare?em:'#000'};opacity:${k.op||1}"></div><b>${k.n}</b><small>${un?(k.leg?'Legend · unlocked ✓':k.rare?'Rare · unlocked ✓':'Standard'):'🔒 '+k.task}</small>${k.rare&&!un?`<div class="pb"><i style="width:${pg*100}%"></i></div><small>${Math.min(ST[k.key]||0,k.goal)} / ${k.goal}</small>`:''}</div>`}).join('')+`</div><button id="bb" class="dim">Back</button>`;
  $('bb').onclick=scrMain;ov.querySelectorAll('.sk').forEach(el=>el.onclick=()=>{const i=+el.dataset.i;if(!skinOpen(i)){tone(200,.1,'square',.05);return}SKIN=i;applySkin(ME,i);saveAcc();scrSkins();tone(700,.08,'square',.05)})}
 function scrAcct(){ov.innerHTML=`<h1 class="mt">ACCOUNT SETTINGS</h1><div class="badge">${ACC?'Signed in as '+ACC.nick+(ACC.cloud?' · cloud':' · this device'):'Not signed in (guest)'}</div>
- <div class="mrow">${ACC?'':'<button id="su">Sign Up</button><button id="si2" class="alt">Sign In</button>'}${ACC?'<button id="lo" class="danger">Log Out</button>':''}</div><div class="mrow"><button id="bb" class="dim">Back</button></div>
+ <div class="mrow">${ACC?'':'<button id="su">Sign Up</button><button id="si2" class="alt">Sign In</button>'}${ACC?'<button id="lo" class="danger">Log Out</button>':''}</div><div class="mrow"><button id="bb" class="dim">Back</button><button id="pmb" class="dim">Permissions</button></div>
  <p class="small">Passwords are never stored as plain text: they are salted and run through PBKDF2 (200,000 rounds), and cloud account data sits in a private area that other players cannot read. Do not reuse a real password anyway. You are logged out automatically after 7 days of not playing.</p>`;
- $('bb').onclick=scrMain;if($('su'))$('su').onclick=()=>scrForm(true);if($('si2'))$('si2').onclick=()=>scrForm(false);if($('lo'))$('lo').onclick=()=>{logOut();scrAcct()}}
+ $('pmb').onclick=async()=>{const p=await permNs();if(p){try{await p.manage()}catch(e){}hubInit()}};$('bb').onclick=scrMain;if($('su'))$('su').onclick=()=>scrForm(true);if($('si2'))$('si2').onclick=()=>scrForm(false);if($('lo'))$('lo').onclick=()=>{logOut();scrAcct()}}
+function scrReset(){ov.innerHTML=`<h1 class="mt">RESET PASSWORD</h1><p class="small">This works for accounts that were created with your Claude account or on this device. Enter the nickname and a new password.</p><input id="an" maxlength="12" placeholder="Nickname" autocomplete="off"><input id="pw" type="password" maxlength="32" placeholder="New password"><input id="pw2" type="password" maxlength="32" placeholder="Confirm new password"><div class="red" id="am"></div><div class="mrow"><button id="go2">Reset and sign in</button><button id="bb" class="dim">Back</button></div>`;
+ $('bb').onclick=()=>scrForm(false);$('go2').onclick=async()=>{$('am').textContent='Please wait…';const m=await resetPw($('an').value,$('pw').value,$('pw2').value);if(m)$('am').textContent=m;else scrMain()}}
 function scrForm(up){ov.innerHTML=`<h1 class="mt">${up?'SIGN UP':'SIGN IN'}</h1><input id="an" maxlength="12" placeholder="${up?'New nickname':'Nickname'}" autocomplete="off"><input id="pw" type="password" maxlength="32" placeholder="${up?'New password':'Password'}">${up?'<input id="pw2" type="password" maxlength="32" placeholder="Confirm password">':''}
- <div class="red" id="am"></div><div class="mrow"><button id="go2">${up?'Create account':'Sign In'}</button><button id="bb" class="dim">Back</button></div>`;$('bb').onclick=scrAcct;
- $('go2').onclick=async()=>{$('am').textContent='Please wait…';const m=up?await signUp($('an').value,$('pw').value,$('pw2').value):await signIn($('an').value,$('pw').value);if(m)$('am').textContent=m;else scrMain()}}
+ <div class="red" id="am"></div><div class="mrow"><button id="go2">${up?'Create account':'Sign In'}</button><button id="bb" class="dim">Back</button>${up?'':'<button id="fg" class="dim">Forgot password?</button>'}</div>`;$('bb').onclick=scrAcct;
+ if($('fg'))$('fg').onclick=scrReset;$('go2').onclick=async()=>{$('am').textContent='Please wait…';const m=up?await signUp($('an').value,$('pw').value,$('pw2').value):await signIn($('an').value,$('pw').value);if(m)$('am').textContent=m;else scrMain()}}
 async function scrSearch(){phase='search';PRIV=false;srchCd=12;ov.innerHTML=`<div class="sp"></div><h1>Searching for a match…</h1><p id="si">Connecting…</p><div id="nl"></div><button id="corner" class="dim">Private match</button><button id="bk2" class="dim">Back</button>`;$('corner').onclick=scrPriv;$('bk2').onclick=backToMenu;
  const ok=await netJoin('pub',false);if(!ok)return fail()}
 const chatEl=document.getElementById('chat'),ci2=document.getElementById('ci2');
@@ -696,8 +713,9 @@ async function micToggle(){if(micOn){micStop();return}if(!R){chatAdd('','Voice c
  ac();micOn=true;document.getElementById('mic').classList.add('on');pres({mic:1});speakDetect(MIC,'me');micConnectAll();micIv=setInterval(micTick,150);chatAdd('','Microphone ON','#9dff00')}
 document.getElementById('mic').onclick=micToggle;
 function backToMenu(){try{R&&R.leave()}catch(e){}R=null;phase='menu';started=false;DUELM=false;PRIV=false;scrMain()}
-function fail(){phase='menu';DUELM=false;PRIV=false;ov.innerHTML=`<h1 class="mt">NOT CONNECTED</h1><p>${NETERR||'Online mode is unavailable right now.'}</p><div class="mrow"><button id="rt">Retry</button><button id="bs2" class="alt">Singleplayer</button><button id="bb" class="dim">Back</button></div>`;
- $('bb').onclick=backToMenu;$('rt').onclick=()=>{MODE='multi';scrSearch()};$('bs2').onclick=()=>{MODE='single';R=null;myId='solo';isHost=true;ov.style.display='none';hostStart()}}
+function fail(){phase='menu';DUELM=false;PRIV=false;ov.innerHTML=`<h1 class="mt">NOT CONNECTED</h1><p>${NETERR||'Online mode is unavailable right now.'}</p><div class="mrow"><button id="rt">Retry</button>${PERMDENY?'<button id="pm2" class="alt">Permissions</button>':''}<button id="bs2" class="alt">Singleplayer</button><button id="bb" class="dim">Back</button></div>`;
+ $('bb').onclick=backToMenu;$('rt').onclick=()=>{MODE='multi';scrSearch()};if($('pm2'))$('pm2').onclick=async()=>{const p=await permNs();if(p){try{await p.manage()}catch(e){}}PERMDENY=false;hubInit()};
+ $('bs2').onclick=()=>{MODE='single';R=null;myId='solo';isHost=true;ov.style.display='none';hostStart()}}
 function scrPriv(){try{R&&R.leave()}catch(e){}R=null;phase='menu';ov.innerHTML=`<h1>Private match</h1><div class="row"><button id="pc">Create private match</button><button id="pj" class="alt">Join private match</button></div><button id="bk0" class="dim">Back</button>`;$('bk0').onclick=backToMenu;
  $('pc').onclick=async()=>{codeStr=String(10000+Math.random()*89999|0);phase='search';PRIV=true;ov.innerHTML=`<h1>Private match</h1><div class="code">${codeStr}</div><p>Tell this number to your friends</p><button id="ps">Start</button><button id="bkp" class="dim">Back</button><div id="nl"></div>`;
   $('bkp').onclick=backToMenu;$('ps').onclick=()=>{if(isHost)hostPick()};if(!await netJoin('p'+codeStr,true))fail()};
